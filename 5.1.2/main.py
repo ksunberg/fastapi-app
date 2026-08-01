@@ -45,7 +45,7 @@ async def update_todo(todo_id: int, todo_update: TodoUpdate, db: AsyncSession = 
     if todo_update.completed is not None:
         db_todo.completed = todo_update.completed
     await db.commit()
-    awit db.refresh(db_todo)
+    await db.refresh(db_todo)
     return db_todo
 
 

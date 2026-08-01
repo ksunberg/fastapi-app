@@ -19,8 +19,8 @@ async def get_db():
 @app.post("/register")
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(UserTable).where(UserTable.username == user.username))
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
+    sush_user = result.scalar_one_or_none()
+    if sush_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Пользователь уже существует"
@@ -31,7 +31,8 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     await db.refresh(new_user)
     return {"message": f"Пользователь {user.username} успешно зарегистрирован"}
 
-async def authenticate(credentials: HTTPBasicCredentials = Depends(security), db: AsyncSession = Depends(get_db)):
+async def authenticate(credentials: HTTPBasicCredentials = Depends(security),
+                       db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(UserTable).where(UserTable.username == credentials.username))
     user = result.scalar_one_or_none()
     if not user or user.password != credentials.password:

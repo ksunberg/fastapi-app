@@ -9,7 +9,7 @@ app = FastAPI()
 security = HTTPBasic()
 
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
-
+#TODO sha256
 DATABASE_URL = "postgresql+psycopg://superuser:superpassword@127.0.0.1/postgres"
 engine = create_async_engine(DATABASE_URL)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
@@ -22,8 +22,8 @@ async def get_db():
 @app.post("/register")
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(UserTable).where(UserTable.username == user.username))
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
+    sush_user = result.scalar_one_or_none()
+    if sush_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Пользователь уже существует"
