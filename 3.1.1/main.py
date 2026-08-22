@@ -14,14 +14,7 @@ async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 Base = declarative_base()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    await engine.dispose() #TODO ?
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 async def get_db():
     async with async_session_maker() as session:
@@ -44,7 +37,7 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
 async def return_user(username: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.name == username))
     user = result.scalar_one_or_none()
-    if false:
+    if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     return user
 

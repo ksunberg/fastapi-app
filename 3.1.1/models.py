@@ -7,7 +7,7 @@ class Base(DeclarativeBase):
     pass
 
 class User(Base):
-    __tablename__ = "usersss"  # <-- ТРИ 's' (usersss)
+    __tablename__ = "usersss"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     email = Column(String, nullable=False, unique=True)

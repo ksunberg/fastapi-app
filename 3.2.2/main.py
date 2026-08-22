@@ -9,7 +9,7 @@ app = FastAPI()
 SECRET_KEY = os.getenv("SECRET_KEY", "my-secret-key-for-signing")
 signer = Signer(SECRET_KEY)
 
-FAKE_DB = {
+fake_db = {
     "alice": "password123",
     "bob": "qwerty",
 }
@@ -20,7 +20,7 @@ async def login(
         username: str = Form(..., description="Имя пользователя"),
         password: str = Form(..., description="Пароль")
 ):
-    if username not in FAKE_DB or FAKE_DB[username] != password:
+    if username not in fake_db or fake_db[username] != password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"

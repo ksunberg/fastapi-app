@@ -19,7 +19,7 @@ def test_register_success(mock_session, override_dependency):
 def test_user_info_found(mock_session, override_dependency):
     user_id = 1
     fake_user = MagicMock()
-    fake_user.id = 1
+    fake_user.id = user_id
     fake_user.username = "kot"
     fake_user.password = "password"
     result_mock = MagicMock()
