@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from database import Product
-from models import ProductResponse
+from models import ProductStatus, Product, Product_Response
+
+
 
 app = FastAPI()
 
@@ -14,16 +15,13 @@ async def get_db():
         yield session
 
 @app.post("/product/")
-async def create_product(product: ProductResponse, db: AsyncSession = Depends(get_db)):
+async def create_product(product: Product_Response, db: AsyncSession = Depends(get_db)):
     db_product = Product(
         title=product.title,
         price=product.price,
         count=product.count,
-        description = product.description
     )
     db.add(db_product)
     await db.commit()
     await db.refresh(db_product)
     return db_product
-
-
