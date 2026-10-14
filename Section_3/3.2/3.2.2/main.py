@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, Request, Form, status
-from fastapi.responses import JSONResponse
-from itsdangerous import Signer, BadSignature
-import uuid
 import os
+import uuid
+
+from fastapi import FastAPI, Form, Request, status
+from fastapi.responses import JSONResponse
+from itsdangerous import BadSignature, Signer
 
 app = FastAPI()
 
@@ -14,6 +15,9 @@ fake_db = {
     "bob": "qwerty",
 }
 
+user_ids = {username: str(uuid.uuid4()) for username in fake_db}
+users_by_id = {user_id: username for username, user_id in user_ids.items()}
+
 
 @app.post("/login")
 async def login(
@@ -21,13 +25,13 @@ async def login(
         password: str = Form(..., description="Пароль")
 ):
     if username not in fake_db or fake_db[username] != password:
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+            content={"message": "Invalid credentials"}
         )
-    user_id = str(uuid.uuid4())
+    user_id = user_ids[username]
     signed_value = signer.sign(user_id).decode('utf-8')
-    response = JSONResponse({"message": "Вход успешен", "user_id": user_id})
+    response = JSONResponse({"message": "Login successful", "user_id": user_id})
     response.set_cookie(
         key="session_token",
         value=signed_value,
@@ -54,8 +58,15 @@ async def profile(request: Request):
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"message": "Unauthorized"}
         )
+    username = users_by_id.get(user_id)
+    if username is None:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"message": "Unauthorized"}
+        )
     return {
         "user_id": user_id,
+        "username": username,
         "message": "Profile data",
         "status": "authenticated"
     }
