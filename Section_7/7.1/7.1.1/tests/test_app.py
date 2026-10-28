@@ -1,68 +1,93 @@
-import pytest
-from fastapi.testclient import TestClient
-from my_app.main import app
-from unittest.mock import MagicMock
+class TestUserApi:
+    """Асинхронные тесты трёх эндпоинтов через httpx.AsyncClient + ASGITransport."""
 
-client = TestClient(app)
+    async def test_create_user_and_validate_response(self, client, faker):
+        payload = {
+            "username": faker.user_name(),
+            "age": faker.random_int(min=18, max=99),
+        }
+        response = await client.post("/users", json=payload)
 
+        assert response.status_code == 201
+        data = response.json()
+        assert data["id"] >= 1
+        assert data["username"] == payload["username"]
+        assert data["age"] == payload["age"]
 
-def test_register_success(mock_session, override_dependency):
-    payload = {"username": "kot", "password": "ghpH1845"}
-    response = client.post("/register", json=payload)
-    assert response.status_code == 200
-    assert response.json() == {"massage": "Пользователь создан"}
-    mock_session.add.assert_called_once()
-    mock_session.commit.assert_called_once()
-    mock_session.refresh.assert_called_once()
+    async def test_create_user_with_boundary_age_and_check_saved(self, client, faker):
+        payload = {
+            "username": faker.user_name()[:3],
+            "age": 1,
+        }
+        response = await client.post("/users", json=payload)
 
+        assert response.status_code == 201
+        data = response.json()
+        assert data["username"] == payload["username"]
+        assert data["age"] == 1
 
-def test_user_info_found(mock_session, override_dependency):
-    user_id = 1
-    fake_user = MagicMock()
-    fake_user.id = user_id
-    fake_user.username = "kot"
-    fake_user.password = "password"
-    result_mock = MagicMock()
-    result_mock.scalar_one_or_none.return_value = fake_user
-    mock_session.execute.return_value = result_mock
-    response = client.get(f"/user_info/{user_id}")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["id"] == 1
-    assert data["username"] == "kot"
+        get_response = await client.get(f"/users/{data['id']}")
+        assert get_response.status_code == 200
+        assert get_response.json() == data
 
+    async def test_get_existing_user(self, client, faker):
+        payload = {
+            "username": faker.user_name(),
+            "age": faker.random_int(min=18, max=99),
+        }
+        create_response = await client.post("/users", json=payload)
+        user_id = create_response.json()["id"]
 
-def test_user_info_not_found(mock_session, override_dependency):
-    user_id = 999
-    result_mock = MagicMock()
-    result_mock.scalar_one_or_none.return_value = None
-    mock_session.execute.return_value = result_mock
-    response = client.get(f"/user_info/{user_id}")
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Пользователь не найден"
+        response = await client.get(f"/users/{user_id}")
 
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == user_id
+        assert data["username"] == payload["username"]
+        assert data["age"] == payload["age"]
 
-def test_get_all_users(mock_session, override_dependency):
-    user1 = MagicMock()
-    user1.id = 1
-    user1.username = "kot"
-    user1.password = "password1"
-    user2 = MagicMock()
-    user2.id = 2
-    user2.username = "kotik"
-    user2.password = "password2"
-    users_list = [user1, user2]
-    result_mock = MagicMock()
-    result_mock.scalars.return_value.all.return_value = users_list
-    mock_session.execute.return_value = result_mock
-    response = client.get("/all_user_info")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 2
-    assert data[0]["id"] == 1
-    assert data[0]["username"] == "kot"
-    assert data[0]["password"] == "password1"
-    assert data[1]["id"] == 2
-    assert data[1]["username"] == "kotik"
-    assert data[1]["password"] == "password2"
+    async def test_get_nonexistent_user(self, client):
+        response = await client.get("/users/999")
 
+        assert response.status_code == 404
+        assert response.json()["detail"] == "User not found"
+
+    async def test_delete_existing_user(self, client, faker):
+        payload = {
+            "username": faker.user_name(),
+            "age": faker.random_int(min=18, max=99),
+        }
+        create_response = await client.post("/users", json=payload)
+        user_id = create_response.json()["id"]
+
+        response = await client.delete(f"/users/{user_id}")
+
+        assert response.status_code == 204
+
+        get_response = await client.get(f"/users/{user_id}")
+        assert get_response.status_code == 404
+
+    async def test_delete_nonexistent_user(self, client):
+        response = await client.delete("/users/999")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "User not found"
+
+    async def test_delete_user_twice(self, client, faker):
+        payload = {
+            "username": faker.user_name(),
+            "age": faker.random_int(min=18, max=99),
+        }
+        create_response = await client.post("/users", json=payload)
+        user_id = create_response.json()["id"]
+
+        first_delete = await client.delete(f"/users/{user_id}")
+        assert first_delete.status_code == 204
+
+        second_delete = await client.delete(f"/users/{user_id}")
+        assert second_delete.status_code == 404
+
+    async def test_create_user_without_data_returns_422(self, client):
+        response = await client.post("/users", json={})
+
+        assert response.status_code == 422

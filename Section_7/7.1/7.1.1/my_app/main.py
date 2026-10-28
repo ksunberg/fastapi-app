@@ -1,44 +1,48 @@
-from fastapi import FastAPI, HTTPException, Depends
-from .models import UserCreate, UserResponse, UserTable
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy import select
-from typing import List
-
-
-DATABASE_URL = "postgresql+psycopg://superuser:superpassword@127.0.0.1/postgres"
-engine = create_async_engine(DATABASE_URL)
-async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+from fastapi import FastAPI, HTTPException, Response
+from pydantic import BaseModel
+from itertools import count
+from threading import Lock
 
 app = FastAPI()
 
-async def get_db():
-    async with async_session_maker() as session:
-        return session
+db: dict[int, dict] = {}
 
-@app.post("/register")
-async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
-    db_user = UserTable(
-        username = user.username,
-        password = user.password
-    )
-    db.add(db_user)
-    await db.commit()
-    await db.refresh(db_user)
-    return {"massage": "Пользователь создан"}
-
-@app.get("/user_info/{user_id}")
-async def user_info(user_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(UserTable).where(UserTable.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(404, "Пользователь не найден")
-    return {"id": user.id, "username": user.username}
+_id_seq = count(start=1)
+_id_lock = Lock()
 
 
-@app.get("/all_user_info", response_model=List[UserResponse])
-async def get_all_info(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(UserTable))
-    users = result.scalars().all()
-    return users
+def next_user_id() -> int:
+    with _id_lock:
+        return next(_id_seq)
 
 
+class UserIn(BaseModel):
+    username: str
+    age: int
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    age: int
+
+
+@app.post("/users", response_model=UserOut, status_code=201)
+def create_user(user: UserIn):
+    user_id = next_user_id()
+    db[user_id] = user.model_dump()
+    return {"id": user_id, **db[user_id]}
+
+
+@app.get("/users/{user_id}", response_model=UserOut)
+def get_user(user_id: int):
+    if user_id not in db:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"id": user_id, **db[user_id]}
+
+
+@app.delete("/users/{user_id}", status_code=204)
+def delete_user(user_id: int):
+    if db.pop(user_id, None) is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return Response(status_code=204)

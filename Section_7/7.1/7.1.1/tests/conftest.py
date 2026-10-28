@@ -1,22 +1,25 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
-from my_app.main import app, get_db
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from faker import Faker
+
+from my_app.main import app, db
+
+
+@pytest_asyncio.fixture
+async def client():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
 
 
 @pytest.fixture
-def mock_session():
-    mock = AsyncMock()
-    mock.execute = AsyncMock()
-    mock.add = MagicMock()
-    mock.commit = AsyncMock()
-    mock.refresh = AsyncMock()
-    return mock
+def faker():
+    return Faker()
 
 
 @pytest.fixture(autouse=True)
-def override_dependency(mock_session):
-    async def override_get_db():
-        return mock_session
-    app.dependency_overrides[get_db] = override_get_db
-    yield mock_session
-    app.dependency_overrides.clear()
+def clear_db():
+    db.clear()
+    yield
+    db.clear()
