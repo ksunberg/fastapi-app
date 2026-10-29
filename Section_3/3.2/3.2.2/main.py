@@ -3,7 +3,7 @@ import uuid
 
 from fastapi import FastAPI, Form, Request, status
 from fastapi.responses import JSONResponse
-from itsdangerous import BadSignature, Signer
+from itsdangerous import BadSignature, BadTimeSignature, SignatureExpired, Signer
 
 app = FastAPI()
 
@@ -16,7 +16,6 @@ fake_db = {
 }
 
 user_ids = {username: str(uuid.uuid4()) for username in fake_db}
-users_by_id = {user_id: username for username, user_id in user_ids.items()}
 
 
 @app.post("/login")
@@ -45,7 +44,6 @@ async def login(
 @app.get("/profile")
 async def profile(request: Request):
     session_token = request.cookies.get("session_token")
-
     if not session_token:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -53,12 +51,30 @@ async def profile(request: Request):
         )
     try:
         user_id = signer.unsign(session_token).decode('utf-8')
+    except SignatureExpired:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"message": "Session expired"}
+        )
+    except BadTimeSignature:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"message": "Unauthorized"}
+        )
     except BadSignature:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"message": "Unauthorized"}
         )
-    username = users_by_id.get(user_id)
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"message": "Unauthorized"}
+        )
+    username = next(
+        (name for name, uid in user_ids.items() if uid == user_id),
+        None
+    )
     if username is None:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,4 +86,3 @@ async def profile(request: Request):
         "message": "Profile data",
         "status": "authenticated"
     }
-
