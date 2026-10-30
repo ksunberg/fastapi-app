@@ -3,7 +3,7 @@ import uuid
 
 from fastapi import FastAPI, Form, Request, status
 from fastapi.responses import JSONResponse
-from itsdangerous import BadSignature, BadTimeSignature, SignatureExpired, Signer
+from itsdangerous import Signer
 
 app = FastAPI()
 
@@ -51,22 +51,7 @@ async def profile(request: Request):
         )
     try:
         user_id = signer.unsign(session_token).decode('utf-8')
-    except SignatureExpired:
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content={"message": "Session expired"}
-        )
-    except BadTimeSignature:
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content={"message": "Unauthorized"}
-        )
-    except BadSignature:
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content={"message": "Unauthorized"}
-        )
-    except Exception:
+    except:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"message": "Unauthorized"}

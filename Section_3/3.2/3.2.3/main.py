@@ -1,8 +1,9 @@
 import os
 import time
 import uuid
+
 from fastapi import FastAPI, Form, Request, Response
-from itsdangerous import BadSignature, BadTimeSignature, SignatureExpired, TimestampSigner
+from itsdangerous import TimestampSigner
 
 app = FastAPI()
 
@@ -24,19 +25,13 @@ def verify_cookie(cookie_value: str | None) -> tuple[str, int] | None:
     if not cookie_value:
         return None
     try:
-        user_id, signed_at = signer.unsign(cookie_value, return_timestamp=True)
+        user_id, signed_at = signer.unsign(
+            cookie_value,
+            max_age=SESSION_TTL,
+            return_timestamp=True,
+        )
         return user_id.decode("utf-8"), int(signed_at.timestamp())
-    except SignatureExpired:
-        return None
-    except BadTimeSignature:
-        return None
-    except BadSignature:
-        return None
-    except UnicodeDecodeError:
-        return None
-    except (ValueError, TypeError, OverflowError):
-        return None
-    except Exception:
+    except:
         return None
 
 
@@ -50,10 +45,9 @@ async def login(
         response.status_code = 401
         return {"message": "Invalid credentials"}
     user_id = str(uuid.uuid4())
-    cookie_value = create_cookie(user_id)
     response.set_cookie(
         key=SESSION_COOKIE,
-        value=cookie_value,
+        value=create_cookie(user_id),
         httponly=True,
         secure=False,
         max_age=SESSION_TTL,
@@ -69,12 +63,9 @@ async def profile(request: Request, response: Response):
     if result is None:
         response.status_code = 401
         return {"message": "Invalid session"}
-    user_id, timestamp = result
-    elapsed = int(time.time()) - timestamp
-    if not (0 <= elapsed <= SESSION_TTL):
-        response.status_code = 401
-        return {"message": "Session expired"}
-    if elapsed >= RENEW_THRESHOLD:
+    user_id, signed_at = result
+    age = int(time.time()) - signed_at
+    if age >= RENEW_THRESHOLD:
         response.set_cookie(
             key=SESSION_COOKIE,
             value=create_cookie(user_id),
