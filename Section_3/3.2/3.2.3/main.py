@@ -13,7 +13,7 @@ SESSION_COOKIE = "session_token"
 SESSION_TTL = 300
 RENEW_THRESHOLD = 180
 
-FAKE_DB = {"ksu": "123"}
+fake_bd = {"ksu": "123"}
 
 
 @app.post("/login")
@@ -22,7 +22,7 @@ async def login(
     username: str = Form(...),
     password: str = Form(...),
 ):
-    if username not in FAKE_DB or FAKE_DB[username] != password:
+    if username not in fake_bd or fake_bd[username] != password:
         response.status_code = 401
         return {"message": "Invalid credentials"}
     user_id = str(uuid.uuid4())
