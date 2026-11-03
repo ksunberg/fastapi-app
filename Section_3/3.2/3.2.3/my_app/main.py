@@ -2,7 +2,7 @@ import os
 import uuid
 
 from fastapi import FastAPI, Form, Request, Response
-from itsdangerous import SignatureExpired, TimestampSigner
+from itsdangerous import BadData, SignatureExpired, TimestampSigner
 
 app = FastAPI()
 
@@ -45,23 +45,19 @@ async def profile(request: Request, response: Response):
         response.status_code = 401
         return {"message": "Invalid session"}
     try:
-        user_id, _ = signer.unsign(cookie, max_age=RENEW_THRESHOLD, return_timestamp=True)
-        renewed = False
+        user_id, created_at = signer.unsign(
+            cookie, max_age=SESSION_TTL, return_timestamp=True
+        )
     except SignatureExpired:
-        try:
-            user_id, _ = signer.unsign(cookie, max_age=SESSION_TTL, return_timestamp=True)
-            renewed = True
-        except SignatureExpired:
-            response.status_code = 401
-            return {"message": "Session expired"}
-        except:
-            response.status_code = 401
-            return {"message": "Invalid session"}
-    except:
+        response.status_code = 401
+        return {"message": "Session expired"}
+    except BadData:
         response.status_code = 401
         return {"message": "Invalid session"}
 
-    if renewed:
+    age = signer.get_timestamp() - int(created_at.timestamp())
+    renewed = False
+    if SESSION_TTL - age < RENEW_THRESHOLD:
         response.set_cookie(
             key=SESSION_COOKIE,
             value=signer.sign(user_id.decode("utf-8")).decode("utf-8"),
@@ -71,5 +67,10 @@ async def profile(request: Request, response: Response):
             path="/",
             samesite="lax",
         )
+        renewed = True
 
-    return {"user_id": user_id.decode("utf-8"), "message": "Profile data"}
+    return {
+        "user_id": user_id.decode("utf-8"),
+        "message": "Profile data",
+        "renewed": renewed,
+    }
