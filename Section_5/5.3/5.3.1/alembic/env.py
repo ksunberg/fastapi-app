@@ -16,10 +16,12 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 
-# Берём URL из переменной окружения, если она задана
 database_url = os.getenv("DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+
+if not database_url:
+    database_url = "postgresql+psycopg://superuser:superpassword@127.0.0.1/postgres"
+
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

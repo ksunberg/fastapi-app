@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
+from sqlalchemy import String
 class Base(DeclarativeBase):
     pass
 
@@ -9,4 +9,4 @@ class Product(Base):
     title: Mapped[str] = mapped_column(nullable=False)
     price: Mapped[float] = mapped_column(nullable=False)
     count: Mapped[int] = mapped_column(nullable=False)
-    description: Mapped[str] = mapped_column(nullable=False, server_default='')
+    description: Mapped[str] = mapped_column(String(200), nullable=False, server_default='')
